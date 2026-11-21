@@ -2,7 +2,7 @@
 
 R package and reproducible simulation code for **coordinate descent estimation of
 longitudinal quantile regression with high-dimensional compositional
-covariates** (CDA-LCQR).
+covariates**.
 
 The repository is intentionally kept small and simple:
 
