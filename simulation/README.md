@@ -1,26 +1,24 @@
 # Simulation study: six estimators for penalised quantile regression
 
-This folder contains the code used for the simulation study (100 replications,
-72 settings).  Only code is included here; the generated result files are not
-committed to the repository.
+Core code for the simulation study in the paper.  Only the implementation of the
+data-generating processes, the six estimators, the evaluation and the parameter
+settings are kept here; the cluster scheduler used for the production run is not
+part of the repository.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `scripts/grid6_task_n75.R` | One task: generate the data, fit one of the six methods, evaluate it and append one row to `results/worker_<id>.csv`. |
-| `scripts/ma_lla.R` | Local linear approximation (LLA) implementation for the MA_M / MA_S baselines, built on `quantreg::rq.fit.fnc`. |
-| `scripts/grid6_fail.R` | Writes a well-formed `status="failed"` row when a worker task times out or dies. |
-| `scripts/make_tasks_n75.R` | Builds the complete task table (one row per fit). |
-| `scripts/make_queue*.R`, `coordinator_n75.R`, `grid6_worker_dyn2.sh`, `grid6_launch_dyn2.sh`, `auto_chain_n75.sh` | Distributed execution: pull-based queue, single-writer coordinator, automatic block chaining. |
-| `scripts/monitor_n75.sh`, `progress_n75.R`, `eta_n75.R` | Progress monitoring and ETA. |
-| `scripts/summarize_settings_n75.R` | Aggregates `results/worker_*.csv` into per-setting tables. |
-| `hosts.example.txt` | Template for the machine list used by the launcher. |
+| `scripts/fit_task.R` | One fit: generate one data set, run one of the six estimators, evaluate it and append one row to `results/worker_<id>.csv`. |
+| `scripts/ma_baselines.R` | Adaptive-lasso (LP), MCP and SCAD (LLA) baselines of Ma, built on `quantreg::rq.fit.fnc`. |
+
+Requirements: R (>= 3.5) with `quantreg` and `MASS`, plus `CDaLCqr` 0.1.0
+(install the tarball in the repository root).
 
 ## Design
 
-- `n = 75` subjects with 2 or 3 repeated observations each (`N` around 187-196),
-  four ordinary covariates `X = (1, X1, X2, time)` and `p` compositional
+- `n = 75` subjects with 2 or 3 repeated observations each (`N` around 187--196),
+  four unpenalised covariates `X = (1, X1, X2, time)` and `p` compositional
   predictors `Z = log(C)` derived from a softmax of correlated normals.
 - Four data-generating processes:
 
@@ -32,59 +30,84 @@ committed to the repository.
   The six true signals are the same in all setups; the remaining coefficients
   are zero.
 - `p in {500, 600, 700, 800, 900, 1000}`, `tau in {0.2, 0.5, 0.8}`, 100
-  replications (`seed = 2026 + replication`), so the full grid has
-  `4 x 3 x 6 x 100 = 7,200` tasks per method (43,200 in total).
-- Six methods: CDA_L / CDA_M / CDA_S (this package: convex adaptive lasso,
-  MCP, SCAD) and MA_ALPqr / MA_M / MA_S (adaptive lasso via LP, MCP / SCAD
-  via LLA).
-- Lambda grids: 60-point convex grid `exp(seq(log 1e-4, log 0.3))` for
-  CDA_L and MA_ALPqr; 30-point non-convex grid from `N/5000` to `N/200`
-  (quadratically concentrated towards the dense end) for the four
-  non-convex fits. Lambda is chosen by GIC.
-- The study sets `CDA_PILOT_SCALE=0.5` for the CDA fits (pilot penalty
-  halved), which puts the CDA adaptive-lasso pilot on the same scale as the
-  LP adaptive-lasso baseline.
+  replications, so one estimator is evaluated in `4 x 3 x 6 x 100 = 7,200`
+  settings (43,200 fits in total).
+- Six estimators: `CDA_L` / `CDA_M` / `CDA_S` (this package: convex adaptive
+  lasso, MCP, SCAD) and `MA_ALPqr` / `MA_M` / `MA_S` (adaptive lasso via LP,
+  MCP / SCAD via LLA).
+- Lambda is chosen by GIC on a fixed grid; the number of selected coefficients
+  is counted with threshold `1e-5`.
 
-## Running one task
+## Parameter settings
 
-Install the package tarball from the repository root first:
+| Quantity | Value |
+|---|---|
+| subjects (`NSUBJ` environment variable) | 75 |
+| unpenalised covariates `r` | 4 |
+| seed | `2026 + replication` |
+| `eps` (CDA stopping tolerance) | `3e-6` |
+| `maxit` | `300000` |
+| `mu` (augmented Lagrangian) | 10 |
+| `kk` (concave-penalty approximation) | 0.1 |
+| `CDA_PILOT_SCALE` | 0.5 |
+| convex lambda grid (CDA_L, MA_ALPqr) | 60 points, `exp(seq(log 1e-4, log 0.3))` |
+| non-convex lambda grid (CDA_M, CDA_S, MA_M, MA_S) | 30 points, `exp(log(N/5000) + (log(N/200) - log(N/5000)) * (1 - (1 - u)^2))`, `u` uniform on `[0, 1]` |
+| GIC | `log(loss) + (size - 1) * log(p) * log(log(n)) / n` |
+| selection threshold | `1e-5` |
 
-```r
-install.packages("CDaLCqr_0.1.0.tar.gz", repos = NULL, type = "source")
-```
+`CDA_PILOT_SCALE = 0.5` halves the pilot penalty of the CDA adaptive lasso,
+which puts its initialisation on the same scale as the LP adaptive-lasso
+baseline.
 
-Then, from the repository root:
+## Running one fit
+
+Install the package tarball from the repository root, then run from the
+repository root:
 
 ```bash
-Rscript simulation/scripts/grid6_task_n75.R \
+export CDA_LIB_DIR="$HOME/R/library"     # library holding CDaLCqr 0.1.0
+Rscript simulation/scripts/fit_task.R \
   "$PWD" I 0.5 500 1 CDA_M "$CDA_LIB_DIR"
 ```
 
-`ROOT` is the repository root: outputs go to `ROOT/results/`, and
-`ROOT/simulation/scripts/ma_lla.R` is sourced for MA_M / MA_S.  Rows are
-appended to `results/worker_<worker>.csv` (one file per worker, so parallel
-workers never write the same file).  `CDA_LIB_DIR` is passed to `.libPaths()`
-so a specific installed version of CDaLCqr can be selected.
+The argument order is `ROOT SETUP TAU P REPLICATION METHOD LIB_DIR [WORKER_ID]`.
+`ROOT` is the repository root: the row is appended to
+`ROOT/results/worker_<WORKER_ID>.csv`, and `ma_baselines.R` is sourced from
+`ROOT/simulation/scripts/` for the MA estimators.  `CDA_LIB_DIR` is passed to
+`.libPaths()` so a specific installed version of CDaLCqr can be selected; the
+optional `CDA_R_LIBS` variable adds further library paths (separated by
+`.Platform$path.sep`) when packages such as `quantreg` are installed elsewhere.
+`NSUBJ` overrides the number of subjects.
 
-## Distributed execution
+## Running the full grid
 
-`make_tasks_n75.R` writes the task table, `make_queue_n75.R` turns it into a
-queue, and `coordinator_n75.R` is the single writer that hands out ids.  Every
-worker machine runs `grid6_worker_dyn2.sh` in a loop; `grid6_launch_dyn2.sh`
-starts the worker pool on one machine and `hosts.example.txt` lists the
-machines.  `auto_chain_n75.sh` starts the next block of replications as soon as
-the previous one finishes, and `monitor_n75.sh` prints the number of completed
-tasks.  The protocol is plain SSH + shared `queue/`, `done/` and `results/`
-directories; no scheduler is required.
+The full study is a loop over the four dimensions, for example
+
+```bash
+ROOT=$PWD
+LIB=${CDA_LIB_DIR:-$HOME/R/library}
+for p in 500 600 700 800 900 1000; do
+  for setup in I II III IV; do
+    for tau in 0.2 0.5 0.8; do
+      for rep in $(seq 1 100); do
+        for method in CDA_L CDA_M CDA_S MA_ALPqr MA_M MA_S; do
+          Rscript simulation/scripts/fit_task.R \
+            "$ROOT" "$setup" "$tau" "$p" "$rep" "$method" "$LIB" adhoc
+        done
+      done
+    done
+  done
+done
+```
+
+This is the same loop that was distributed over several machines for the paper;
+each worker simply writes `results/worker_<id>.csv` with its own `id`, so the
+files never overlap and can be merged afterwards.
 
 ## Output
 
-One row per task, 27 columns: setting `(setup, tau, p, replication, method)`,
+One row per fit, 27 columns: setting `(setup, tau, p, replication, method)`,
 `status`/`error`, `N`/`seed`, selected `lambda_best`, timings, the four AEE
 measures, `SIZE`, `FP`, `FN`, `PCF` (exact recovery of the support and signs)
 and convergence counters.  Failed fits are recorded with `status="failed"`
 instead of being dropped, so completion rates can be reported per setting.
-Aggregation is done by `scripts/summarize_settings_n75.R`, which reads every
-`results/worker_*.csv` and prints mean AEE / SIZE / PCF per setting and
-method; paired comparisons merge the per-method rows on
-`(setup, tau, p, replication)`.

@@ -83,34 +83,35 @@ sum(abs(fit$beta_rq) >= 1e-5)   # number of selected compositional covariates
 
 ## Simulation study
 
-The `simulation/` folder is self-contained:
+The `simulation/` folder contains the core code of the study:
 
 ```
 simulation/
-├── README.md              # data-generating processes, estimators, seeds
+├── README.md            # design, parameter settings, output format
 └── scripts/
-    ├── grid6_task_n75.R   # one replication: DGP + six estimators
-    ├── ma_lla.R           # MA baselines (ALPqr, MCP, SCAD)
-    ├── grid6_fail.R       # failsafe re-run of crashed tasks
-    ├── make_tasks_n75.R   # build the complete task table
-    ├── make_queue_n75.R   # (re)build a queue from a task table
-    ├── coordinator_n75.R  # single-writer coordinator for the queue
-    ├── grid6_launch_dyn2.sh, grid6_worker_dyn2.sh
-    ├── coord_watch_n75.sh, auto_chain_n75.sh
-    ├── monitor_n75.sh, progress_n75.R, eta_n75.R
-    ├── summarize_settings_n75.R
-    └── hosts.example.txt  # machine list template
+    ├── fit_task.R       # one fit: data generation + one estimator + evaluation
+    └── ma_baselines.R   # MA baselines (ALPqr, LLA MCP / SCAD)
 ```
 
-A single replication can be run without any scheduler:
+A single fit can be run without any scheduler.  Install the package first (see
+above), then from the repository root:
 
 ```bash
-Rscript simulation/scripts/grid6_task_n75.R <task_id>
+export CDA_LIB_DIR="$HOME/R/library"     # library holding CDaLCqr 0.1.0
+Rscript simulation/scripts/fit_task.R \
+  "$PWD" I 0.5 500 1 CDA_M "$CDA_LIB_DIR"
 ```
 
-The production run used 100 replications × 72 settings × 6 estimators, seeds
-`2026 + replication`, and a dynamic pull queue over several Linux machines; see
-`simulation/README.md` for the exact protocol and output format.
+The argument order is `ROOT SETUP TAU P REPLICATION METHOD LIB_DIR [WORKER_ID]`;
+the row is appended to `results/worker_<WORKER_ID>.csv`.  `NSUBJ` (default 75)
+sets the number of subjects, and `CDA_R_LIBS` lists additional library paths
+(for example the library holding `quantreg`) when they are not on the default
+search path.
+
+The full study is a loop over 4 data-generating processes × 3 quantile levels ×
+6 dimensions `p` × 100 replications × 6 estimators; the loop is shown in
+`simulation/README.md`.  Seeds are `2026 + replication`, so every fit is
+independently reproducible.
 
 ## Reproducibility notes
 

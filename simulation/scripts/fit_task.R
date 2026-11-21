@@ -1,9 +1,11 @@
 #!/usr/bin/env Rscript
-# One task of the six-algorithm full grid.
-# Usage: Rscript grid6_task.R ROOT SETUP TAU P REP METHOD LIB_DIR
+# One fit of the six-estimator grid.
+# Usage: Rscript fit_task.R ROOT SETUP TAU P REP METHOD LIB_DIR [WORKER]
+# SETUP: I | II | III | IV; TAU: 0.2 | 0.5 | 0.8
 # METHOD: CDA_L | CDA_M | CDA_S | MA_ALPqr | MA_M | MA_S
-# Data are generated in memory from the manuscript seed (no data files).
-# Failures are written as a metrics row with status='failed' and error text.
+# The data are generated in memory from seed = 2026 + REP (no data files).
+# The result row is appended to ROOT/results/worker_<WORKER>.csv; a failed fit
+# is recorded with status='failed' instead of being dropped.
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 7L || length(args) > 8L)
@@ -130,7 +132,13 @@ fit_alpqr <- function(dat) {
 }
 
 # ---------- run ----------
-.libPaths(c(lib_dir, '/mnt/cda/R/library', .libPaths()))
+extra_libs <- Sys.getenv('CDA_R_LIBS', '')
+extra_libs <- if (nzchar(extra_libs)) {
+  strsplit(extra_libs, .Platform$path.sep, fixed = TRUE)[[1L]]
+} else {
+  character(0)
+}
+.libPaths(c(lib_dir, extra_libs, .libPaths()))
 set.seed(seed)
 dat <- generate_data()
 
@@ -175,7 +183,7 @@ tryCatch({
     path_converged <- TRUE
     package_version <- paste('quantreg', as.character(utils::packageVersion('quantreg')))
   } else {
-    source(file.path(root, 'simulation', 'scripts', 'ma_lla.R'))
+    source(file.path(root, 'simulation', 'scripts', 'ma_baselines.R'))
     penalty <- c(MA_M = 'MCP', MA_S = 'SCAD')[[method]]
     a_arg <- if (penalty == 'MCP') 1.05 else 2.01
     lam <- cda_lambda_grid(dat$N, penalty)
@@ -189,7 +197,7 @@ tryCatch({
     selected_iterations <- diagnostics$outer_iterations[[idx]]
     selected_converged <- diagnostics$converged[[idx]]
     path_converged <- sum(diagnostics$converged)
-    package_version <- 'ma_lla.R'
+    package_version <- 'ma_baselines.R'
   }
 }, error = function(e) {
   status <<- 'failed'
