@@ -12,7 +12,6 @@ The repository is intentionally kept small and simple:
 | `China_AIC_Panel_2016-2023.xlsx` | Example data: Chinese AIC / household panel, 2016--2023 |
 | `simulation/` | All code of the simulation study reported in the paper |
 | `README.md` | This file |
-| `LICENSE.md`, `CITATION.cff` | License and citation information |
 
 The repository ships code and example data only; generated simulation
 outputs are not included.
@@ -124,9 +123,8 @@ independently reproducible.
 
 ## Citation
 
-If you use this code, please cite the paper (see `CITATION.cff` for the current
-BibTeX entry).
+If you use CDaLCqr in your work, please cite the accompanying paper.
 
 ## License
 
-GPL (>= 2), see `LICENSE.md`.
+GPL (>= 2), as declared in the package `DESCRIPTION`.
