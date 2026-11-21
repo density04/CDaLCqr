@@ -1,0 +1,10 @@
+# Optional host list for auto_chain_n75.sh
+# Format: host|ssh_port|worker_tag_prefix|n_workers
+# Use "local" as host for the coordinator machine.
+# Copy to hosts.txt (git-ignored) and edit.
+
+# example: coordinator machine with 48 workers
+# local|0|ws1|48
+# example: remote machines reachable with ssh key auth
+# worker-node-1.example.org|22|node1|44
+# worker-node-2.example.org|22|node2|44
