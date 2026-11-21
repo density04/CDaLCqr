@@ -1,0 +1,24 @@
+# R build artefacts
+*.tar.gz
+*.Rcheck/
+.Rhistory
+.RData
+.Rproj.user/
+src/*.o
+src/*.so
+src/*.dll
+# simulation outputs (large, not committed)
+simulation/logs/
+simulation/results/
+simulation/queue/
+simulation/done/
+simulation/feed/
+simulation/req/
+simulation/assign/
+simulation/start/
+
+# per-worker result shards (merged into results_all.csv.gz)
+results/worker_*.csv
+
+# keep the released package tarball
+!CDaLCqr_*.tar.gz
