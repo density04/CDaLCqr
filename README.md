@@ -111,20 +111,3 @@ The full study is a loop over 4 data-generating processes × 3 quantile levels �
 6 dimensions `p` × 100 replications × 6 estimators; the loop is shown in
 `simulation/README.md`.  Seeds are `2026 + replication`, so every fit is
 independently reproducible.
-
-## Reproducibility notes
-
-- All simulation results in the paper are based on 100 replications; seeds are
-  `2026 + replication`, so every task is independently reproducible.
-- The estimators share the same data, lambda grids and GIC rule; the pilot
-  penalty of the CDA methods is scaled by `CDA_PILOT_SCALE` (0.5 in the paper)
-  to align the pilot with the LP adaptive-lasso baseline.
-- The package tarball is the exact version used for the study (0.1.0).
-
-## Citation
-
-If you use CDaLCqr in your work, please cite the accompanying paper.
-
-## License
-
-GPL (>= 2), as declared in the package `DESCRIPTION`.
